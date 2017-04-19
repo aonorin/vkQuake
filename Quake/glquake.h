@@ -25,8 +25,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef __GLQUAKE_H
 #define __GLQUAKE_H
 
-void GL_WaitForDeviceIdle();
+void GL_WaitForDeviceIdle (void);
 void GL_BeginRendering (int *x, int *y, int *width, int *height);
+void GL_AcquireNextSwapChainImage (void);
 void GL_EndRendering (void);
 void GL_Set2D (void);
 
@@ -48,6 +49,8 @@ extern	int glx, gly, glwidth, glheight;
 #define BACKFACE_EPSILON	0.01
 
 #define	MAX_GLTEXTURES	2048
+#define NUM_COLOR_BUFFERS 2
+#define STAGING_BUFFER_SIZE_KB	16384
 
 void R_TimeRefresh_f (void);
 void R_ReadPointFile_f (void);
@@ -100,13 +103,7 @@ typedef struct particle_s
 	ptype_t		type;
 } particle_t;
 
-typedef enum {
-	world_pipeline_base,
-	world_pipeline_fullbright,
-	world_pipeline_alpha_test,
-	world_pipeline_fullbright_alpha_test,
-	world_pipeline_count
-} world_pipeline_type;
+#define WORLD_PIPELINE_COUNT 8
 
 typedef struct
 {
@@ -120,23 +117,29 @@ typedef struct
 	VkPhysicalDeviceProperties			device_properties;
 	VkPhysicalDeviceMemoryProperties	memory_properties;
 	uint32_t							gfx_queue_family_index;
+	VkFormat							color_format;
 	VkFormat							depth_format;
 	VkSampleCountFlagBits				sample_count;
+	qboolean							supersampling;
+
+	// Buffers
+	VkImage								color_buffers[NUM_COLOR_BUFFERS];
 
 	// Render passes
 	VkRenderPass						main_render_pass;
-	VkClearValue						main_clear_values[2];
-	VkRenderPassBeginInfo				main_render_pass_begin_info;
+	VkClearValue						main_clear_values[4];
+	VkRenderPassBeginInfo				main_render_pass_begin_infos[2];
+	VkRenderPass						ui_render_pass;
+	VkRenderPassBeginInfo				ui_render_pass_begin_info;
 	VkRenderPass						warp_render_pass;
 
 	// Pipelines
-	VkPipeline							basic_alphatest_pipeline;
-	VkPipeline							basic_blend_pipeline;
-	VkPipeline							basic_notex_blend_pipeline;
+	VkPipeline							basic_alphatest_pipeline[2];
+	VkPipeline							basic_blend_pipeline[2];
+	VkPipeline							basic_notex_blend_pipeline[2];
 	VkPipeline							basic_poly_blend_pipeline;
-	VkPipeline							basic_char_pipeline;
 	VkPipelineLayout					basic_pipeline_layout;
-	VkPipeline							world_pipelines[world_pipeline_count];
+	VkPipeline							world_pipelines[WORLD_PIPELINE_COUNT];
 	VkPipelineLayout					world_pipeline_layout;
 	VkPipeline							water_pipeline;
 	VkPipeline							water_blend_pipeline;
@@ -152,12 +155,16 @@ typedef struct
 	VkPipelineLayout					alias_pipeline_layout;
 	VkPipeline							postprocess_pipeline;
 	VkPipelineLayout					postprocess_pipeline_layout;
+	VkPipeline							screen_warp_pipeline;
+	VkPipelineLayout					screen_warp_pipeline_layout;
 
 	// Descriptors
 	VkDescriptorPool					descriptor_pool;
 	VkDescriptorSetLayout				ubo_set_layout;
 	VkDescriptorSetLayout				single_texture_set_layout;
 	VkDescriptorSetLayout				input_attachment_set_layout;
+	VkDescriptorSet						screen_warp_desc_set;
+	VkDescriptorSetLayout				screen_warp_set_layout;
 
 	// Samplers
 	VkSampler							point_sampler;
@@ -181,6 +188,8 @@ extern	entity_t	*currententity;
 extern	int		r_visframecount;	// ??? what difs?
 extern	int		r_framecount;
 extern	mplane_t	frustum[4];
+extern	int render_pass_index;
+extern	qboolean render_warp;
 
 //
 // view origin
@@ -219,7 +228,6 @@ extern	cvar_t	gl_cull;
 extern	cvar_t	gl_smoothmodels;
 extern	cvar_t	gl_affinemodels;
 extern	cvar_t	gl_polyblend;
-extern	cvar_t	gl_flashblend;
 extern	cvar_t	gl_nocolors;
 
 extern	cvar_t	gl_playermip;

@@ -134,7 +134,7 @@ static void TexMgr_Imagelist_f (void)
 			texels += (glt->width * glt->height);
 	}
 
-	mb = texels * (Cvar_VariableValue("vid_bpp") / 8.0f) / 0x100000;
+	mb = (texels * 4) / 0x100000;
 	Con_Printf ("%i textures %i pixels %1.1f megabytes\n", numgltextures, (int)texels, mb);
 }
 
@@ -160,7 +160,7 @@ float TexMgr_FrameUsage (void)
 		}
 	}
 
-	mb = texels * (Cvar_VariableValue("vid_bpp") / 8.0f) / 0x100000;
+	mb = (texels * 4) / 0x100000;
 	return mb;
 }
 
@@ -213,9 +213,6 @@ gltexture_t *TexMgr_NewTexture (void)
 
 static void GL_DeleteTexture (gltexture_t *texture);
 
-//ericw -- workaround for preventing TexMgr_FreeTexture during TexMgr_ReloadImages
-static qboolean in_reload_images;
-
 /*
 ================
 TexMgr_FreeTexture
@@ -225,9 +222,6 @@ void TexMgr_FreeTexture (gltexture_t *kill)
 {
 	gltexture_t *glt;
 
-	if (in_reload_images)
-		return;
-	
 	if (kill == NULL)
 	{
 		Con_Printf ("TexMgr_FreeTexture: NULL texture\n");
@@ -1033,10 +1027,6 @@ static void TexMgr_LoadImage32 (gltexture_t *glt, unsigned *data)
 	VkImageMemoryBarrier image_memory_barrier;
 	memset(&image_memory_barrier, 0, sizeof(image_memory_barrier));
 	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	image_memory_barrier.srcAccessMask = 0;
-	image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	image_memory_barrier.image = glt->image;
@@ -1046,10 +1036,16 @@ static void TexMgr_LoadImage32 (gltexture_t *glt, unsigned *data)
 	image_memory_barrier.subresourceRange.baseArrayLayer = 0;
 	image_memory_barrier.subresourceRange.layerCount = 1;
 
+	image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	image_memory_barrier.srcAccessMask = 0;
+	image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL, 1, &image_memory_barrier);
 
 	vkCmdCopyBufferToImage(command_buffer, staging_buffer, glt->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, num_mips, regions);
 
+	image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 	image_memory_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	image_memory_barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL, 1, &image_memory_barrier);
@@ -1365,34 +1361,6 @@ invalid:
 	}
 
 	Hunk_FreeToLowMark(mark);
-}
-
-/*
-================
-TexMgr_ReloadImages -- reloads all texture images. called only by vid_restart
-================
-*/
-void TexMgr_ReloadImages (void)
-{
-	/*gltexture_t *glt;
-
-// ericw -- tricky bug: if the hunk is almost full, an allocation in TexMgr_ReloadImage
-// triggers cache items to be freed, which calls back into TexMgr to free the
-// texture. If this frees 'glt' in the loop below, the active_gltextures
-// list gets corrupted.
-// A test case is jam3_tronyn.bsp with -heapsize 65536, and do several mode
-// switches/fullscreen toggles
-// 2015-09-04 -- Cache_Flush workaround was causing issues (http://sourceforge.net/p/quakespasm/bugs/10/)
-// switching to a boolean flag.
-	in_reload_images = true;
-
-	for (glt = active_gltextures; glt; glt = glt->next)
-	{
-		glGenTextures(1, &glt->texnum);
-		TexMgr_ReloadImage (glt, -1, -1);
-	}*/
-	
-	in_reload_images = false;
 }
 
 /*

@@ -1,7 +1,9 @@
-# Goal
-vkQuake serves as a Vulkan demo application that shows basic usage of the API. For example it demonstrates render passes and sub passes, pipeline barriers, CPU/GPU parallelism and memory pooling. It is also meant as a port, which is as authentic to the original as possible.
+# Overview
+vkQuake is a Quake 1 port using Vulkan instead of OpenGL for rendering. It is based on the popular [QuakeSpasm](http://quakespasm.sourceforge.net/) port and runs all mods compatible with it like [Arcane Dimensions](https://www.quaddicted.com/reviews/ad_v1_50final.html) or [In The Shadows](http://www.moddb.com/mods/its).
 
-It is compatible with all mods that run on QuakeSpasm like [In The Shadows](http://www.moddb.com/mods/its) or [Arcane Dimensions](https://www.quaddicted.com/reviews/ad_v1_42final.html).
+Compared to QuakeSpasm vkQuake also features a software Quake like underwater effect, has better color precision, generates mipmap for water surfaces at runtime and has native support for anti-aliasing and AF.
+
+vkQuake also serves as a Vulkan demo application that shows basic usage of the API. For example it demonstrates render passes & sub passes, pipeline barriers & synchronization, compute shaders, push & specialization constants, CPU/GPU parallelism and memory pooling.
 
 # Building
 
@@ -31,10 +33,10 @@ build the solution.
 Download the latest release of [MinGW-w64](https://sourceforge.net/projects/mingw-w64/files/latest/download) and install it:
 
 * 32 bit:
-  * Architecure: i686
+  * Architecture: i686
   * Install location: C:\mingw-w32
 * 64 bit:
-  * Architecure: x86_64
+  * Architecture: x86_64
   * Install location: C:\mingw-w64
 
 Also install the latest release of
